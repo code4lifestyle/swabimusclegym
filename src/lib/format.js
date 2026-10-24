@@ -100,11 +100,20 @@ export function saveErrorMessage(error) {
   }
 
   const code = String(error?.code || '')
+  const message = String(error?.message || '')
+
   if (code.includes('permission-denied') || code.includes('unauthorized')) {
-    return 'Firebase blocked the save. Publish the Firestore and Storage rules, then try again.'
+    return 'Firebase blocked this action. Open Firestore → Rules, paste firestore.rules from this project, then Publish.'
+  }
+  if (code.includes('failed-precondition') || message.includes('index')) {
+    return 'Firestore needs an index for CNIC search. Open the error link in the browser console, or try again after rules are published.'
+  }
+  if (code.includes('invalid-argument') || message.toLowerCase().includes('too big') || message.toLowerCase().includes('larger')) {
+    return 'That photo is too large for Firestore. Use a closer, smaller picture.'
   }
   if (code.includes('network') || code.includes('unavailable')) {
     return 'Network problem. Check the connection and try again.'
   }
+  if (message) return message
   return 'Could not save this member. Try again.'
 }

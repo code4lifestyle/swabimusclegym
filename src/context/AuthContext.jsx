@@ -27,6 +27,11 @@ export function AuthProvider({ children }) {
       user,
       ready,
       async login(email, password) {
+        if (!auth) {
+          const error = new Error('Firebase is not configured.')
+          error.code = 'auth/network-request-failed'
+          throw error
+        }
         const credential = await signInWithEmailAndPassword(auth, email.trim(), password)
         if (adminEmail && credential.user.email?.toLowerCase() !== adminEmail) {
           await signOut(auth)
@@ -36,7 +41,7 @@ export function AuthProvider({ children }) {
         }
       },
       logout() {
-        return signOut(auth)
+        return auth ? signOut(auth) : Promise.resolve()
       },
     }),
     [user, ready],

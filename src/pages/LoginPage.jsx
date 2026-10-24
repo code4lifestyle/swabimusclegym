@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { adminEmail, isFirebaseConfigured } from '../firebase'
 import { loginErrorMessage } from '../lib/format'
+
+const SceneBackdrop = lazy(() => import('../components/SceneBackdrop'))
 
 export default function LoginPage() {
   const { user, ready, login } = useAuth()
@@ -35,6 +37,9 @@ export default function LoginPage() {
 
   return (
     <main className="login">
+      <Suspense fallback={null}>
+        <SceneBackdrop variant="login" />
+      </Suspense>
       <form className="gate" onSubmit={handleSubmit}>
         <p className="gate-kicker">Swabi Muscle Gym</p>
         <h1>Sign in</h1>
@@ -42,7 +47,7 @@ export default function LoginPage() {
 
         {!isFirebaseConfigured ? (
           <p className="gate-alert">
-            Add the Firebase keys to <code>.env.local</code>, then restart the dev server.
+            Firebase is not configured. Add the web app keys to the environment and rebuild.
           </p>
         ) : null}
 

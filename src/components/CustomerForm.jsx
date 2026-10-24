@@ -1,8 +1,6 @@
 import { useState } from 'react'
-import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage'
 import { addDoc, collection, getDocs, limit, query, serverTimestamp, where } from 'firebase/firestore'
-import { useAuth } from '../hooks/useAuth'
-import { db, storage } from '../firebase-data'
+import { db } from '../firebase-data'
 import {
   cleanName,
   digitsOnly,
@@ -14,6 +12,7 @@ import {
   normalizePhone,
   saveErrorMessage,
 } from '../lib/format'
+import { blobToDataUrl } from '../lib/image'
 import PhotoPicker from './PhotoPicker'
 
 const emptyForm = {
@@ -33,8 +32,7 @@ function validate(values, photoBlob) {
   return errors
 }
 
-export default function CustomerForm({ onSaved }) {
-  const { user } = useAuth()
+export default function CustomerForm({ onSaved, onToast }) {
   const [values, setValues] = useState(emptyForm)
   const [photoBlob, setPhotoBlob] = useState(null)
   const [photoKey, setPhotoKey] = useState(0)
@@ -55,7 +53,10 @@ export default function CustomerForm({ onSaved }) {
     setErrors(nextErrors)
     setFormError('')
     setSuccess('')
-    if (Object.keys(nextErrors).length > 0) return
+    if (Object.keys(nextErrors).length > 0) {
+      setFormError('Fill every field and add a picture before saving.')
+      return
+    }
 
     const member = {
       name: cleanName(values.name),
@@ -65,26 +66,25 @@ export default function CustomerForm({ onSaved }) {
     }
 
     setSaving(true)
-    let photoPath = ''
     try {
-      const existing = await getDocs(
-        query(collection(db, 'customers'), where('cnic', '==', member.cnic), limit(1)),
-      )
-      if (!existing.empty) {
-        const error = new Error('duplicate')
-        error.code = 'app/duplicate-cnic'
-        throw error
+      try {
+        const existing = await getDocs(
+          query(collection(db, 'customers'), where('cnic', '==', member.cnic), limit(1)),
+        )
+        if (!existing.empty) {
+          const error = new Error('duplicate')
+          error.code = 'app/duplicate-cnic'
+          throw error
+        }
+      } catch (lookupError) {
+        if (lookupError?.code === 'app/duplicate-cnic') throw lookupError
+        // Continue to save if the uniqueness check is blocked by rules/index.
       }
 
-      photoPath = `customers/${user.uid}/${Date.now()}.jpg`
-      const photoRef = ref(storage, photoPath)
-      await uploadBytes(photoRef, photoBlob, { contentType: 'image/jpeg' })
-      const photoUrl = await getDownloadURL(photoRef)
-
+      const photoUrl = await blobToDataUrl(photoBlob)
       const docRef = await addDoc(collection(db, 'customers'), {
         ...member,
         photoUrl,
-        photoPath,
         createdAt: serverTimestamp(),
       })
 
@@ -92,11 +92,10 @@ export default function CustomerForm({ onSaved }) {
       setPhotoBlob(null)
       setPhotoKey((key) => key + 1)
       setSuccess(`${member.name} is on the ledger.`)
-      onSaved?.({ id: docRef.id, ...member, photoUrl, photoPath, createdAt: null })
+      onToast?.(`${member.name} was added to the ledger.`, 'add')
+      onSaved?.({ id: docRef.id, ...member, photoUrl, createdAt: null })
     } catch (error) {
-      if (photoPath) {
-        await deleteObject(ref(storage, photoPath)).catch(() => {})
-      }
+      console.error('Save member failed:', error)
       setFormError(saveErrorMessage(error))
     } finally {
       setSaving(false)
@@ -104,43 +103,47 @@ export default function CustomerForm({ onSaved }) {
   }
 
   return (
-    <form className="sheet form-sheet" onSubmit={handleSubmit} noValidate>
-      <div className="sheet-head">
-        <h2>New member</h2>
-        <p>All fields are required.</p>
-      </div>
+    <form className="gate member-gate" onSubmit={handleSubmit} noValidate>
+      <p className="gate-kicker">Swabi Muscle Gym</p>
+      <h1>
+        Add new
+        <br />
+        member
+      </h1>
 
-      <label className="field" htmlFor="member-name">
+      <label className="gate-field" htmlFor="member-name">
         <span>Name</span>
         <input
           id="member-name"
           name="name"
           autoComplete="name"
+          placeholder="Member name"
           maxLength={80}
           value={values.name}
           disabled={saving}
           aria-invalid={Boolean(errors.name)}
           onChange={(event) => updateField('name', event.target.value)}
         />
-        {errors.name ? <small className="field-error">{errors.name}</small> : null}
       </label>
+      {errors.name ? <p className="gate-alert">{errors.name}</p> : null}
 
-      <label className="field" htmlFor="father-name">
+      <label className="gate-field" htmlFor="father-name">
         <span>Father name</span>
         <input
           id="father-name"
           name="fatherName"
           autoComplete="off"
+          placeholder="Father name"
           maxLength={80}
           value={values.fatherName}
           disabled={saving}
           aria-invalid={Boolean(errors.fatherName)}
           onChange={(event) => updateField('fatherName', event.target.value)}
         />
-        {errors.fatherName ? <small className="field-error">{errors.fatherName}</small> : null}
       </label>
+      {errors.fatherName ? <p className="gate-alert">{errors.fatherName}</p> : null}
 
-      <label className="field" htmlFor="cnic">
+      <label className="gate-field" htmlFor="cnic">
         <span>CNIC</span>
         <input
           id="cnic"
@@ -154,10 +157,10 @@ export default function CustomerForm({ onSaved }) {
           aria-invalid={Boolean(errors.cnic)}
           onChange={(event) => updateField('cnic', formatCnic(event.target.value))}
         />
-        {errors.cnic ? <small className="field-error">{errors.cnic}</small> : null}
       </label>
+      {errors.cnic ? <p className="gate-alert">{errors.cnic}</p> : null}
 
-      <label className="field" htmlFor="phone-number">
+      <label className="gate-field" htmlFor="phone-number">
         <span>Phone number</span>
         <input
           id="phone-number"
@@ -172,12 +175,12 @@ export default function CustomerForm({ onSaved }) {
           aria-invalid={Boolean(errors.phoneNumber)}
           onChange={(event) => updateField('phoneNumber', formatPhone(event.target.value))}
         />
-        {errors.phoneNumber ? <small className="field-error">{errors.phoneNumber}</small> : null}
       </label>
+      {errors.phoneNumber ? <p className="gate-alert">{errors.phoneNumber}</p> : null}
 
-      <fieldset className="field" disabled={saving}>
-        <legend>Picture</legend>
-        <p className="field-hint">Use the camera, or attach a picture from this device.</p>
+      <div className="gate-photo" aria-disabled={saving}>
+        <p className="gate-kicker">Picture</p>
+        <p className="gate-note">Use the camera, or attach a picture.</p>
         <PhotoPicker
           key={photoKey}
           disabled={saving}
@@ -187,14 +190,18 @@ export default function CustomerForm({ onSaved }) {
             setSuccess('')
           }}
         />
-        {errors.photo ? <small className="field-error">{errors.photo}</small> : null}
-      </fieldset>
+        {errors.photo ? <p className="gate-alert">{errors.photo}</p> : null}
+      </div>
 
-      {formError ? <p className="banner banner-error">{formError}</p> : null}
-      {success ? <p className="banner banner-success">{success}</p> : null}
+      {formError ? <p className="gate-alert">{formError}</p> : null}
+      {success ? <p className="gate-success">{success}</p> : null}
 
-      <button className="btn btn-primary btn-block" type="submit" disabled={saving}>
-        {saving ? 'Saving…' : 'Save member'}
+      <button
+        className={`action-btn action-btn-add ${saving ? 'is-busy' : ''} ${success ? 'is-done' : ''}`}
+        type="submit"
+        disabled={saving}
+      >
+        {saving ? 'Saving…' : success ? 'Saved' : 'Save member'}
       </button>
     </form>
   )

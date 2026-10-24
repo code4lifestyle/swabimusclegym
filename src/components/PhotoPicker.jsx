@@ -34,15 +34,16 @@ function cameraMessage(error) {
   return 'The camera could not start. Attach a picture instead.'
 }
 
-export default function PhotoPicker({ onBlob, disabled }) {
+export default function PhotoPicker({ onBlob, disabled, initialUrl = '' }) {
   const videoRef = useRef(null)
   const streamRef = useRef(null)
   const fileRef = useRef(null)
   const previewRef = useRef('')
+  const ownsPreviewRef = useRef(false)
   const aliveRef = useRef(true)
-  const [mode, setMode] = useState('empty')
+  const [mode, setMode] = useState(initialUrl ? 'preview' : 'empty')
   const [facing, setFacing] = useState('environment')
-  const [previewUrl, setPreviewUrl] = useState('')
+  const [previewUrl, setPreviewUrl] = useState(initialUrl || '')
   const [streamNonce, setStreamNonce] = useState(0)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -53,20 +54,25 @@ export default function PhotoPicker({ onBlob, disabled }) {
     if (videoRef.current) videoRef.current.srcObject = null
   }
 
-  function replacePreview(nextUrl) {
-    if (previewRef.current) URL.revokeObjectURL(previewRef.current)
+  function replacePreview(nextUrl, owned = true) {
+    if (ownsPreviewRef.current && previewRef.current) URL.revokeObjectURL(previewRef.current)
     previewRef.current = nextUrl
+    ownsPreviewRef.current = owned && Boolean(nextUrl)
     setPreviewUrl(nextUrl)
   }
 
   useEffect(() => {
     aliveRef.current = true
+    if (initialUrl) {
+      previewRef.current = initialUrl
+      ownsPreviewRef.current = false
+    }
     return () => {
       aliveRef.current = false
       stopStream()
-      if (previewRef.current) URL.revokeObjectURL(previewRef.current)
+      if (ownsPreviewRef.current && previewRef.current) URL.revokeObjectURL(previewRef.current)
     }
-  }, [])
+  }, [initialUrl])
 
   useEffect(() => {
     const video = videoRef.current
@@ -154,7 +160,7 @@ export default function PhotoPicker({ onBlob, disabled }) {
 
   function removePhoto() {
     stopStream()
-    replacePreview('')
+    replacePreview('', false)
     setMode('empty')
     setError('')
     onBlob(null)
@@ -166,18 +172,18 @@ export default function PhotoPicker({ onBlob, disabled }) {
         <div className="camera-stage">
           <video ref={videoRef} autoPlay playsInline muted />
           <div className="photo-actions">
-            <button className="btn btn-primary" type="button" onClick={capture} disabled={disabled || busy}>
+            <button className="gate-submit" type="button" onClick={capture} disabled={disabled || busy}>
               Capture
             </button>
             <button
-              className="btn btn-line"
+              className="gate-link"
               type="button"
               onClick={() => startCamera(facing === 'environment' ? 'user' : 'environment')}
               disabled={disabled || busy}
             >
               Flip
             </button>
-            <button className="btn btn-line" type="button" onClick={closeCamera} disabled={disabled || busy}>
+            <button className="gate-link" type="button" onClick={closeCamera} disabled={disabled || busy}>
               Cancel
             </button>
           </div>
@@ -198,11 +204,11 @@ export default function PhotoPicker({ onBlob, disabled }) {
 
       {mode !== 'camera' ? (
         <div className="photo-actions">
-          <button className="btn btn-line" type="button" onClick={() => startCamera(facing)} disabled={disabled || busy}>
+          <button className="gate-link" type="button" onClick={() => startCamera(facing)} disabled={disabled || busy}>
             Use camera
           </button>
           <button
-            className="btn btn-line"
+            className="gate-link"
             type="button"
             onClick={() => fileRef.current?.click()}
             disabled={disabled || busy}
@@ -210,7 +216,7 @@ export default function PhotoPicker({ onBlob, disabled }) {
             Attach picture
           </button>
           {mode === 'preview' ? (
-            <button className="btn btn-line" type="button" onClick={removePhoto} disabled={disabled || busy}>
+            <button className="gate-link" type="button" onClick={removePhoto} disabled={disabled || busy}>
               Remove
             </button>
           ) : null}
@@ -225,7 +231,7 @@ export default function PhotoPicker({ onBlob, disabled }) {
         onChange={attachFile}
         tabIndex={-1}
       />
-      {error ? <p className="field-error">{error}</p> : null}
+      {error ? <p className="gate-alert">{error}</p> : null}
     </div>
   )
 }
