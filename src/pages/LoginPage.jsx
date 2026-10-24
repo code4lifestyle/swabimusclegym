@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { adminEmail, isFirebaseConfigured } from '../firebase'
 import { loginErrorMessage } from '../lib/format'
+import SiteFooter from '../components/SiteFooter'
 
 const SceneBackdrop = lazy(() => import('../components/SceneBackdrop'))
 
@@ -41,6 +42,7 @@ export default function LoginPage() {
         <SceneBackdrop variant="login" />
       </Suspense>
       <form className="gate" onSubmit={handleSubmit}>
+        <img className="mark gate-mark" src="/logo.svg" alt="" width="48" height="48" />
         <p className="gate-kicker">Swabi Muscle Gym</p>
         <h1>Sign in</h1>
         <p className="gate-note">Admin desk for member registration.</p>
@@ -94,6 +96,7 @@ export default function LoginPage() {
           {submitting ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
+      <SiteFooter />
     </main>
   )
 }

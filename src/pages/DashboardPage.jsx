@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { db } from '../firebase-data'
 import { formatCnic, formatPhone, formatWhen, initials, memberMatches } from '../lib/format'
 import ActionToast from '../components/ActionToast'
+import SiteFooter from '../components/SiteFooter'
 import CustomerForm from '../components/CustomerForm'
 import GymMusicPlayer from '../components/GymMusicPlayer'
 import MemberDetail from '../components/MemberDetail'
@@ -100,7 +101,7 @@ export default function DashboardPage() {
       </Suspense>
       <header className="desk-top">
         <div className="brand-lockup">
-          <span className="mark">SM</span>
+          <img className="mark" src="/logo.svg" alt="Swabi Muscle Gym" width="40" height="40" />
           <div>
             <strong>Swabi Muscle Gym</strong>
             <span>Front desk</span>
@@ -201,6 +202,7 @@ export default function DashboardPage() {
       ) : null}
 
       <ActionToast toast={toast} onDone={clearToast} />
+      <SiteFooter />
     </div>
   )
 }

@@ -10,7 +10,9 @@ export default function GymMusicPlayer() {
   const [error, setError] = useState('')
   const [progress, setProgress] = useState(0)
   const [duration, setDuration] = useState(0)
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(min-width: 901px)').matches : true,
+  )
 
   const track = tracks[index] || null
 
@@ -155,10 +157,14 @@ export default function GymMusicPlayer() {
       <div id="gym-player-panel" className="gym-player-panel" hidden={!open}>
         <div className="gym-player-head">
           <p className="gate-kicker">Audius · Gym cuts</p>
-          <p className="gate-note">Workout tracks only. Free stream.</p>
+          <p className="gate-note">
+            {status === 'ready'
+              ? `${tracks.length} workout tracks · free stream`
+              : 'Workout tracks only. Free stream.'}
+          </p>
         </div>
 
-        {status === 'loading' ? <p className="gate-note">Loading gym playlist…</p> : null}
+        {status === 'loading' ? <p className="gate-note">Loading 200+ gym tracks…</p> : null}
         {status === 'error' ? <p className="gate-alert">{error}</p> : null}
 
         {status === 'ready' && track ? (
@@ -167,7 +173,7 @@ export default function GymMusicPlayer() {
               {track.artwork ? (
                 <img src={track.artwork} alt="" className="gym-player-art" />
               ) : (
-                <div className="gym-player-art gym-player-art-fallback">SM</div>
+                <img src="/logo.svg" alt="" className="gym-player-art" />
               )}
               <div className="gym-player-meta">
                 <strong>{track.title}</strong>
